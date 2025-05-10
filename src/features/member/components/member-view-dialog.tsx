@@ -22,7 +22,8 @@ import {
   IconReceipt2,
   IconCoins,
   IconTag,
-  IconInfoCircle
+  IconInfoCircle,
+  IconGift
 } from '@tabler/icons-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency } from '@/utils/format'
@@ -315,11 +316,7 @@ export function MemberViewDialog({ open, onOpenChange, currentMember }: MemberVi
                     <TableCell>
                       {transaction.discountAmount ? (
                         <Badge variant="default" className="gap-1">
-                          <span>
-                            {transaction.discountValueType === 'percentage'
-                              ? `${transaction.discountValue}%`
-                              : formatCurrency(transaction.discountValue || 0)}
-                          </span>
+                          {formatCurrency(transaction.discountAmount)}
                         </Badge>
                       ) : (
                         '-'
@@ -412,8 +409,76 @@ export function MemberViewDialog({ open, onOpenChange, currentMember }: MemberVi
     )
   }
 
+  const renderRewardClaimsTab = () => {
+    if (!detail || !detail.rewardClaims || detail.rewardClaims.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <IconGift className="h-10 w-10 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium">{t('member.rewards.noRewards')}</h3>
+          <p className="text-sm text-muted-foreground mt-2">
+            {t('member.rewards.noRewardsDescription')}
+          </p>
+        </div>
+      )
+    }
+
+    return (
+      <div className="rounded-lg border overflow-hidden">
+        <div className="max-h-[500px] overflow-auto">
+          <Table>
+            <TableHeader className="bg-muted/50 sticky top-0 z-10">
+              <TableRow>
+                <TableHead className="w-14">#</TableHead>
+                <TableHead>{t('member.view.tabs.rewards')}</TableHead>
+                <TableHead className="text-right">{t('member.rewards.pointsCost')}</TableHead>
+                <TableHead>{t('member.rewards.claimDate')}</TableHead>
+                <TableHead>{t('member.rewards.status')}</TableHead>
+                <TableHead>{t('member.rewards.description')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {detail.rewardClaims.map((claim, index) => (
+                <TableRow key={claim.id} className="hover:bg-muted/50">
+                  <TableCell className="text-muted-foreground text-sm font-medium">
+                    {index + 1}
+                  </TableCell>
+                  <TableCell className="font-medium">{claim.reward.name}</TableCell>
+                  <TableCell className="text-right">
+                    <Badge variant="secondary" className="font-semibold">
+                      -{claim.reward.pointsCost} {t('member.fields.points')}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{format(new Date(claim.claimDate), 'PP')}</TableCell>
+                  <TableCell>
+                    <Badge variant={'default'} className="capitalize">
+                      {claim.status.toLowerCase()}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="max-w-[200px] truncate">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>{claim.reward.description || '-'}</span>
+                        </TooltipTrigger>
+                        {claim.reward.description && (
+                          <TooltipContent className="max-w-[300px]">
+                            <p>{claim.reward.description}</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    )
+  }
+
   const renderDiscountsTab = () => {
-    if (!detail || !detail.discountRelationsMember || detail.discountRelationsMember.length === 0) {
+    if (!detail || !detail.discounts || detail.discounts.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <IconTag className="h-10 w-10 text-muted-foreground mb-4" />
@@ -427,15 +492,68 @@ export function MemberViewDialog({ open, onOpenChange, currentMember }: MemberVi
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {detail.discountRelationsMember.map((discount, index) => (
-          <Card key={index} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
+        {detail.discounts.map((discount) => (
+          <Card key={discount.id} className="hover:shadow-md transition-shadow">
+            <CardHeader className="pb-2">
               <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-base">{discount.discountId}</CardTitle>
+                <CardTitle className="text-base">{discount.name}</CardTitle>
+                <Badge
+                  variant={discount.isActive ? 'default' : 'outline'}
+                  className={
+                    discount.isActive ? 'bg-green-100 text-green-800 hover:bg-green-200' : ''
+                  }
+                >
+                  {discount.isActive
+                    ? t('member.discounts.active')
+                    : t('member.discounts.inactive')}
+                </Badge>
+              </div>
+              {discount.code && (
+                <p className="text-xs text-muted-foreground mt-1 font-mono">{discount.code}</p>
+              )}
+            </CardHeader>
+            <CardContent className="pt-0 space-y-2">
+              {discount.description && <p className="text-sm">{discount.description}</p>}
+
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">{t('member.discounts.discountValue')}</span>
+                <Badge className="text-md font-semibold">
+                  {discount.type === 'PERCENTAGE'
+                    ? `${discount.value}%`
+                    : `${formatCurrency(discount.value)}`}
+                </Badge>
+              </div>
+
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {t('member.discounts.minimumPurchase')}
+                </span>
+                <span>{formatCurrency(discount.minPurchase)}</span>
+              </div>
+
+              {/* Usage limit */}
+              {discount.maxUses !== null && discount.maxUses !== undefined && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{t('member.discounts.usageLimit')}</span>
+                  <div className="flex items-center gap-1">
+                    <span>{discount.usedCount || 0}</span>
+                    <span className="text-muted-foreground">/</span>
+                    <span>{discount.maxUses}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="text-xs text-muted-foreground border-t pt-2 mt-2">
+                <div className="flex justify-between">
+                  <span>{t('member.discounts.validFrom')}</span>
+                  <span>{format(new Date(discount.startDate), 'PP')}</span>
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span>{t('member.discounts.validUntil')}</span>
+                  <span>{format(new Date(discount.endDate), 'PP')}</span>
                 </div>
               </div>
-            </CardHeader>
+            </CardContent>
           </Card>
         ))}
       </div>
@@ -477,7 +595,7 @@ export function MemberViewDialog({ open, onOpenChange, currentMember }: MemberVi
           {renderMemberHeader()}
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="info">
                 <IconUser className="h-4 w-4 mr-2" />
                 {t('member.view.tabs.info')}
@@ -489,6 +607,10 @@ export function MemberViewDialog({ open, onOpenChange, currentMember }: MemberVi
               <TabsTrigger value="points">
                 <IconCoins className="h-4 w-4 mr-2" />
                 {t('member.view.tabs.points')}
+              </TabsTrigger>
+              <TabsTrigger value="rewards">
+                <IconGift className="h-4 w-4 mr-2" />
+                {t('member.view.tabs.rewards')}
               </TabsTrigger>
               <TabsTrigger value="discounts">
                 <IconTag className="h-4 w-4 mr-2" />
@@ -507,6 +629,10 @@ export function MemberViewDialog({ open, onOpenChange, currentMember }: MemberVi
 
             <TabsContent value="points" className="mt-6">
               {renderPointsHistoryTab()}
+            </TabsContent>
+
+            <TabsContent value="rewards" className="mt-6">
+              {renderRewardClaimsTab()}
             </TabsContent>
 
             <TabsContent value="discounts" className="mt-6">
